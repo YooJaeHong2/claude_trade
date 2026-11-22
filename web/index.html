@@ -54,7 +54,7 @@ body {
 }
 .num { font-variant-numeric: tabular-nums; }
 header {
-  position: sticky; top: 0; z-index: 10;
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10;
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
@@ -150,6 +150,11 @@ tbody tr.sel { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
 .legend i.dash { background: repeating-linear-gradient(90deg, var(--peak) 0 4px, transparent 4px 7px) !important; }
+.toast {
+  position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 13px;
+  z-index: 20; max-width: calc(100% - 32px);
+}
 footer { color: var(--text-3); font-size: 12px; padding: 0 0 32px; }
 .empty { padding: 40px 16px; text-align: center; color: var(--text-2); }
 @media (max-width: 1100px) {
@@ -263,6 +268,7 @@ footer { color: var(--text-3); font-size: 12px; padding: 0 0 32px; }
   </section>
 </main>
 <footer class="wrap" id="foot"></footer>
+<div class="toast" id="toast" role="status" hidden></div>
 
 <script>
 const DATA = /*__DATA__*/null;
@@ -282,6 +288,8 @@ function fmtCap(v) {
   if (v >= 1e9) return '$' + (v / 1e9).toFixed(0) + 'B';
   return '$' + (v / 1e6).toFixed(0) + 'M';
 }
+let toastT;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 3000); }
 const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
@@ -391,7 +399,7 @@ function toggleSel(t) {
     if (t1.sel.length === 1) return;
     t1.sel = t1.sel.filter(x => x !== t); delete t1.slots[t];
   } else {
-    const sl = freeSlot(); if (sl < 0) { alert('최대 8개 종목까지 비교할 수 있습니다.'); return; }
+    const sl = freeSlot(); if (sl < 0) { toast('최대 8개 종목까지 비교할 수 있습니다. 다른 종목을 먼저 빼주세요.'); return; }
     t1.sel.push(t); t1.slots[t] = sl;
   }
   lsSet('t1.sel', t1.sel); renderT1Chart(); renderT1Table();
@@ -647,7 +655,7 @@ $('#t3Thr').onchange = e => {
   let v = parseFloat(inp.value); if (!isFinite(v)) return;
   t3.thr[inp.dataset.k] = -Math.abs(v);
   const { warning, serious, critical } = t3.thr;
-  if (!(warning > serious && serious > critical)) { alert('주의 > 경고 > 위험 순으로 설정하세요 (예: -5, -10, -20).'); }
+  if (!(warning > serious && serious > critical)) { toast('주의 > 경고 > 위험 순으로 설정하세요 (예: -5, -10, -20).'); }
   lsSet('t3.thr', t3.thr); renderT3();
 };
 
