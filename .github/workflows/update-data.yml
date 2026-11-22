@@ -1,0 +1,54 @@
+name: Update data & deploy dashboard
+
+on:
+  push:
+    paths:
+      - "scripts/**"
+      - "web/**"
+      - ".github/workflows/update-data.yml"
+  schedule:
+    - cron: "17 22 * * 1-5"   # 22:17 UTC on weekdays, after the US close
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: update-data-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install yfinance pandas
+      - run: python scripts/fetch_data.py
+      - name: Commit data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/data.json
+          git diff --cached --quiet || git commit -m "data: update market data $(date -u +%F)"
+          git push
+      - run: python scripts/build_site.py
+      - uses: actions/upload-pages-artifact@v3
+        if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        with:
+          path: site
+
+  deploy:
+    needs: update
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
