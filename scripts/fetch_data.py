@@ -117,6 +117,11 @@ def main() -> None:
             "c": [rnd(v) for v in lh.tolist()],
         },
     }
+    try:  # diagnostic: is a newer (possibly intraday) bar available than the last daily close?
+        h = yf.Ticker(leader).history(period="5d", interval="1h")
+        print(f"Latest hourly bar for {leader}: {h.index[-1]}  (daily data ends {dates[-1]})")
+    except Exception as e:  # noqa: BLE001
+        print(f"  hourly check failed: {e}", file=sys.stderr)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
     print(f"Wrote {OUT} ({OUT.stat().st_size / 1024:.0f} KB), {len(dates)} days, as of {dates[-1]}")
