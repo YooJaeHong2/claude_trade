@@ -149,12 +149,33 @@ tbody tr.sel { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--text-2); margin-bottom: 8px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
-.legend i.dash { background: repeating-linear-gradient(90deg, var(--peak) 0 4px, transparent 4px 7px) !important; }
 .toast {
   position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
   background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 13px;
   z-index: 20; max-width: calc(100% - 32px);
 }
+.badge { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; font-weight: 700; color: #0b0b0b; white-space: nowrap; }
+.badge.sm { padding: 1px 8px; font-size: 11px; }
+.zoom-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; min-height: 28px; }
+.zoom-bar .hint { margin: 0; }
+.status-sum { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+.sum-item { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--surface); cursor: pointer; color: var(--text-2); }
+.sum-item b { font-size: 18px; color: var(--text); }
+.sum-item.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.pk-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.pk-card { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; cursor: pointer; }
+.pk-card.focus { border-color: var(--accent); }
+.pk-card .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.pk-card .nm2 { color: var(--text-3); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pk-card .big { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; margin: 4px 0 6px; }
+.pk-card dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 0; font-size: 12px; }
+.pk-card dt { color: var(--text-2); } .pk-card dd { margin: 0; text-align: right; }
+.muted { color: var(--text-3); }
+.pk-multi { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.mini .cv.tall { height: 150px; }
+.legend i.dash { background: repeating-linear-gradient(90deg, var(--c, var(--peak)) 0 4px, transparent 4px 7px) !important; }
+td input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; margin: 0; vertical-align: middle; }
 footer { color: var(--text-3); font-size: 12px; padding: 0 0 32px; }
 .empty { padding: 40px 16px; text-align: center; color: var(--text-2); }
 @media (max-width: 1100px) {
@@ -184,7 +205,7 @@ footer { color: var(--text-3); font-size: 12px; padding: 0 0 32px; }
     <nav id="nav">
       <a href="#top100" data-tab="top100">Top 100 주가 차트</a>
       <a href="#top10" data-tab="top10">Top 10 변동률</a>
-      <a href="#leader" data-tab="leader">1위 고점 모니터링</a>
+      <a href="#peak" data-tab="peak">고점 모니터링</a>
     </nav>
   </div>
 </header>
@@ -202,6 +223,8 @@ footer { color: var(--text-3); font-size: 12px; padding: 0 0 32px; }
         </div>
       </div>
       <div class="chips" id="t1Chips"></div>
+      <div class="zoom-bar"><span class="hint">두 손가락으로 벌리거나 오므려 확대/축소, 옆으로 끌어 이동 (PC: 트랙패드 핀치 또는 Ctrl+휠, 더블클릭으로 복원)</span>
+        <button class="icon-btn" type="button" data-zoom-reset="t1Chart" hidden>전체 보기</button></div>
       <div class="chart-box"><canvas id="t1Chart"></canvas></div>
     </div>
     <div class="card">
@@ -239,31 +262,46 @@ footer { color: var(--text-3); font-size: 12px; padding: 0 0 32px; }
     </div>
   </section>
 
-  <!-- 3. Leader -->
-  <section id="tab-leader" hidden>
-    <h2 id="t3Title">1위 기업 고점 대비 모니터링</h2>
-    <p class="sub" id="t3Sub"></p>
-    <div class="status" id="t3Status"></div>
-    <div class="tiles" id="t3Tiles"></div>
+  <!-- 3. Peak monitoring -->
+  <section id="tab-peak" hidden>
+    <h2>고점 모니터링</h2>
+    <p class="sub">Top 100 종목의 사상 최고가(상장 이후 수정 종가) 대비 하락률입니다. 아래 표에서 체크하면 최대 8개까지 함께 비교할 수 있습니다.</p>
+    <div class="status-sum" id="t3Sum"></div>
+    <div class="controls" style="justify-content:space-between">
+      <div class="seg" id="t3Range"></div>
+      <div class="thresholds" id="t3Thr"></div>
+    </div>
+    <div class="pk-cards" id="t3Cards"></div>
     <div class="card">
-      <div class="controls" style="justify-content:space-between">
-        <div class="seg" id="t3Range"></div>
-        <div class="thresholds" id="t3Thr"></div>
-      </div>
-      <h3>주가와 사상 최고가</h3>
-      <div class="legend" id="t3Legend1"></div>
-      <div class="chart-box"><canvas id="t3Price"></canvas></div>
+      <h3>고점 대비 하락률 비교</h3>
+      <p class="hint">0%는 사상 최고가. 점선은 경보 기준선</p>
+      <div class="legend" id="t3Legend"></div>
+      <div class="zoom-bar"><span class="hint">두 손가락으로 확대/축소, 옆으로 끌어 이동</span>
+        <button class="icon-btn" type="button" data-zoom-reset="t3DD" hidden>전체 보기</button></div>
+      <div class="chart-box"><canvas id="t3DD"></canvas></div>
     </div>
     <div class="card">
-      <h3>고점 대비 하락률 (Drawdown)</h3>
-      <p class="hint">0%는 사상 최고가. 점선은 경보 기준선</p>
-      <div class="legend" id="t3Legend2"></div>
-      <div class="chart-box sm"><canvas id="t3DD"></canvas></div>
+      <h3>주가와 사상 최고가</h3>
+      <p class="hint">실선은 종가, 점선은 그 시점까지의 사상 최고가 (종목마다 개별 축)</p>
+      <div class="pk-multi" id="t3Multi"></div>
     </div>
     <div class="card">
       <h3>주요 하락 구간 (고점 대비 −10% 이상)</h3>
-      <p class="hint">전체 상장 기간 기준, 최근 순</p>
+      <p class="hint">상장 이후 전체 기간 기준, 최근 순</p>
+      <div class="controls"><div class="seg" id="t3EpPick"></div></div>
       <div class="table-wrap"><table id="t3Episodes"><thead></thead><tbody></tbody></table></div>
+    </div>
+    <div class="card">
+      <h3>Top 100 고점 현황</h3>
+      <p class="hint">체크박스로 비교 종목을 고르세요. 열 머리글을 누르면 정렬됩니다.</p>
+      <div class="controls">
+        <input class="search" id="t3Search" placeholder="종목 검색 (티커/이름)" type="search">
+        <button class="icon-btn" id="t3Clear" type="button">선택 초기화</button>
+        <span class="asof" id="t3Count"></span>
+      </div>
+      <div class="table-wrap scroll-y">
+        <table id="t3Table"><thead></thead><tbody></tbody></table>
+      </div>
     </div>
   </section>
 </main>
@@ -422,6 +460,7 @@ function renderT1Chart() {
   });
   if (pct) o.scales.y.grid.color = ctx => ctx.tick.value === 0 ? css('--text-3') : css('--grid');
   mk('t1Chart', { type: 'line', data: { labels, datasets }, options: o, plugins: [crosshair] });
+  attachZoom('t1Chart');
   $('#t1Chips').innerHTML = t1.sel.map(t => {
     const s = bySym[t], r = ret(s.c, i0);
     return `<span class="chip"><i style="background:${css(SERIES[t1.slots[t]])}"></i><b>${s.t}</b> <span class="num ${cls(r)}">${fmtPct(r)}</span>${t1.sel.length > 1 ? `<button data-t="${t}" aria-label="제거">×</button>` : ''}</span>`;
@@ -461,7 +500,7 @@ $('#t1Table thead').onclick = e => {
 };
 $('#t1Table tbody').onclick = e => { const tr = e.target.closest('tr'); if (tr) toggleSel(tr.dataset.t); };
 $('#t1Search').oninput = e => { t1.q = e.target.value.trim(); renderT1Table(); };
-segBtns($('#t1Range'), ['1M', '3M', '6M', 'YTD', '1Y', '2Y'], t1.range, v => { t1.range = v; lsSet('t1.range', v); renderT1Chart(); });
+segBtns($('#t1Range'), ['1M', '3M', '6M', 'YTD', '1Y', '2Y'], t1.range, v => { t1.range = v; zoomState.t1Chart = undefined; lsSet('t1.range', v); renderT1Chart(); });
 $('#t1Mode').onclick = e => {
   const b = e.target.closest('button'); if (!b || b.disabled) return;
   t1.mode = b.dataset.v; lsSet('t1.mode', t1.mode); renderT1Chart();
@@ -545,125 +584,300 @@ function renderT2() {
 segBtns($('#t2Range'), T2KEYS, t2.range, v => { t2.range = v; lsSet('t2.range', v); renderT2(); });
 $('#t2Heat thead').onclick = e => { const th = e.target.closest('th'); if (!th) return; t2.sort = th.dataset.k || null; renderT2(); };
 
-/* ---------- Tab 3: Leader drawdown ---------- */
-const L = DATA.leader, LS = bySym[L.t];
-const LD = L.dates, LC = L.c;
-const peak = [], dd = [];
-{ let m = -Infinity; LC.forEach((v, i) => { if (v != null && v > m) m = v; peak[i] = m; dd[i] = v == null ? null : (v / m - 1) * 100; }); }
-const t3 = { range: lsGet('t3.range', '2Y'), thr: lsGet('t3.thr', { warning: -5, serious: -10, critical: -20 }) };
+/* ---------- pinch / wheel zoom + drag pan for category-axis line charts ---------- */
+// Two fingers pinch to zoom, one finger (or mouse) drags sideways to pan once zoomed.
+// Trackpad pinch / ctrl+wheel zooms on desktop. Vertical page scrolling still works.
+const zoomState = {};   // chart id -> { lo, hi } in label indices, or undefined (full view)
+function applyZoom(id) {
+  const ch = charts[id]; if (!ch) return;
+  const n = ch.data.labels.length, z = zoomState[id];
+  const lo = z ? z.lo : 0, hi = z ? z.hi : n - 1;
+  ch.options.scales.x.min = z ? Math.round(lo) : undefined;
+  ch.options.scales.x.max = z ? Math.round(hi) : undefined;
+  // fit y to visible data
+  if (z) {
+    let mn = Infinity, mx = -Infinity;
+    ch.data.datasets.forEach(ds => { if (ds.isThr) return; for (let i = Math.round(lo); i <= Math.round(hi); i++) { const v = ds.data[i]; if (v != null) { mn = Math.min(mn, v); mx = Math.max(mx, v); } } });
+    if (isFinite(mn)) {
+      const pad = (mx - mn) * 0.06 || Math.abs(mx) * 0.02 || 1;
+      ch.options.scales.y.min = mn - pad;
+      ch.options.scales.y.max = ch.options.scales.y._fixedMax ?? mx + pad;
+      ch.options.scales.y.ticks.includeBounds = false;   // no odd-valued edge labels
+    }
+  } else {
+    ch.options.scales.y.min = undefined;
+    ch.options.scales.y.max = ch.options.scales.y._fixedMax;
+  }
+  ch.update('none');
+  const btn = document.querySelector(`[data-zoom-reset="${id}"]`);
+  if (btn) btn.hidden = !z;
+}
+function setView(id, lo, hi) {
+  const n = charts[id].data.labels.length, minSpan = Math.min(10, n - 1);
+  let span = Math.max(minSpan, Math.min(n - 1, hi - lo));
+  if (span >= n - 1) { zoomState[id] = undefined; applyZoom(id); return; }
+  lo = Math.max(0, Math.min(lo, n - 1 - span));
+  zoomState[id] = { lo, hi: lo + span };
+  applyZoom(id);
+}
+function attachZoom(id) {
+  const ch = charts[id], cv = ch.canvas;
+  ch.options.scales.y._fixedMax = ch.options.scales.y.max;
+  if (zoomState[id] && zoomState[id].hi > ch.data.labels.length - 1) zoomState[id] = undefined;
+  applyZoom(id);
+  if (cv._zoomBound) return;
+  cv._zoomBound = true;
+  cv.style.touchAction = 'pan-y';          // let the page scroll vertically; we handle pinch + horizontal drag
+  const pts = new Map(); let g = null;
+  const view = () => { const n = charts[id].data.labels.length; return zoomState[id] ? { ...zoomState[id] } : { lo: 0, hi: n - 1 }; };
+  const area = () => charts[id].chartArea;
+  const frac = x => { const a = area(); return Math.min(1, Math.max(0, (x - a.left) / (a.right - a.left))); };
+  const relX = e => e.clientX - cv.getBoundingClientRect().left;
+  cv.addEventListener('pointerdown', e => {
+    pts.set(e.pointerId, relX(e));
+    const v = view();
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()];
+      g = { mode: 'pinch', d0: Math.abs(a - b) || 1, c0: frac((a + b) / 2), v0: v, cx0: (a + b) / 2 };
+    } else if (pts.size === 1) {
+      g = { mode: 'pan', x0: relX(e), v0: v, moved: false };
+    }
+  });
+  cv.addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId) || !g) return;
+    pts.set(e.pointerId, relX(e));
+    const a = area(), w = a.right - a.left;
+    if (g.mode === 'pinch' && pts.size >= 2) {
+      const [p, q] = [...pts.values()];
+      const span0 = g.v0.hi - g.v0.lo, span = span0 * g.d0 / (Math.abs(p - q) || 1);
+      const pinned = g.v0.lo + g.c0 * span0, lo = pinned - frac((p + q) / 2) * span;   // keep the pinched point under the fingers
+      setView(id, lo, lo + span);
+      e.preventDefault();
+    } else if (g.mode === 'pan' && zoomState[id] && (e.pointerType === 'mouse' ? e.buttons === 1 : true)) {
+      const dx = relX(e) - g.x0; if (Math.abs(dx) > 3) g.moved = true;
+      const span = g.v0.hi - g.v0.lo, shift = -dx / w * span;
+      setView(id, g.v0.lo + shift, g.v0.hi + shift);
+    }
+  });
+  const end = e => { pts.delete(e.pointerId); if (pts.size === 1) { const [x] = pts.values(); g = { mode: 'pan', x0: x, v0: view() }; } else if (!pts.size) g = null; };
+  cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end); cv.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') end(e); });
+  cv.addEventListener('wheel', e => {
+    if (!e.ctrlKey && !e.metaKey) return;  // trackpad pinch arrives as ctrl+wheel; plain wheel keeps scrolling the page
+    e.preventDefault();
+    const v = view(), span = v.hi - v.lo, f = frac(relX(e)), k = Math.exp(e.deltaY * 0.01);
+    const c = v.lo + f * span, ns = span * k;
+    setView(id, c - f * ns, c - f * ns + ns);
+  }, { passive: false });
+  cv.addEventListener('dblclick', () => { zoomState[id] = undefined; applyZoom(id); });
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-zoom-reset]'); if (b) { zoomState[b.dataset.zoomReset] = undefined; applyZoom(b.dataset.zoomReset); } });
+
+/* ---------- Tab 3: Peak monitoring (all top 100, multi-select) ---------- */
+const t3 = {
+  range: lsGet('t3.range', '2Y'),
+  thr: lsGet('t3.thr', { warning: -5, serious: -10, critical: -20 }),
+  sel: lsGet('t3.sel', [S[0].t]).filter(t => bySym[t]),
+  slots: {}, sort: { key: 'dd', dir: 1 }, q: '', filter: null, focus: null,
+};
+if (!['6M', '1Y', '2Y'].includes(t3.range)) t3.range = '2Y';
+if (!t3.sel.length) t3.sel = [S[0].t];
+t3.sel.forEach((t, i) => t3.slots[t] = i);
 const STATUS = [
   { k: 'good', label: '정상', icon: '●' }, { k: 'warning', label: '주의', icon: '▲' },
   { k: 'serious', label: '경고', icon: '◆' }, { k: 'critical', label: '위험', icon: '■' },
 ];
 function levelOf(v) {
+  if (v == null) return null;
   if (v <= t3.thr.critical) return STATUS[3];
   if (v <= t3.thr.serious) return STATUS[2];
   if (v <= t3.thr.warning) return STATUS[1];
   return STATUS[0];
 }
-function episodes() {
-  const out = []; let pk = -1, tr = -1, inEp = false;
-  for (let i = 0; i < LC.length; i++) {
-    const v = LC[i]; if (v == null) continue;
-    if (v >= peak[i]) {                       // at (or setting) the running high
-      if (inEp) out.push({ pk, tr, rec: i });
-      pk = i; tr = i; inEp = false; continue;
-    }
-    if (v < LC[tr]) tr = i;
-    if (dd[i] <= -10) inEp = true;
+const badge = lv => lv ? `<span class="badge sm" style="background:${css('--' + lv.k)}">${lv.icon} ${lv.label}</span>` : '–';
+// per-stock peak/drawdown series over the 2-year window, anchored to the pre-window peak
+S.forEach(s => {
+  let m = s.pk0 ?? -Infinity;
+  s.peak = []; s.dd = [];
+  s.c.forEach((v, i) => { if (v != null && v > m) m = v; s.peak[i] = isFinite(m) ? m : null; s.dd[i] = v == null || !isFinite(m) ? null : (v / m - 1) * 100; });
+  const [li] = lastVal(s.c);
+  s.athV = Math.max(s.ath?.[0] ?? -Infinity, s.peak[li] ?? -Infinity);
+  s.athD = s.ath && s.ath[0] >= (s.peak[li] ?? 0) ? s.ath[1] : D[s.c.lastIndexOf(s.peak[li])];
+  s.curDD = s.last && isFinite(s.athV) ? (s.last / s.athV - 1) * 100 : null;
+  s.since = s.athD ? daysBetween(s.athD, D[li]) : null;
+  const w = s.c.slice(rangeStart(D, '1Y')).filter(v => v != null);
+  s.hi52 = w.length ? Math.max(...w) : null;
+  s.dd52 = s.hi52 ? (s.last / s.hi52 - 1) * 100 : null;
+});
+function nextLevel(s) {
+  const d = s.curDD, th = t3.thr;
+  const n = d > th.warning ? ['주의', th.warning] : d > th.serious ? ['경고', th.serious] : d > th.critical ? ['위험', th.critical] : null;
+  if (!n) return null;
+  const px = s.athV * (1 + n[1] / 100);
+  return { name: n[0], pct: n[1], px, gap: (px / s.last - 1) * 100 };
+}
+function t3Toggle(t) {
+  if (t3.sel.includes(t)) {
+    if (t3.sel.length === 1) { toast('최소 1개 종목은 선택되어 있어야 합니다.'); return; }
+    t3.sel = t3.sel.filter(x => x !== t); delete t3.slots[t];
+    if (t3.focus === t) t3.focus = null;
+  } else {
+    const used = new Set(Object.values(t3.slots)); let sl = -1;
+    for (let i = 0; i < 8; i++) if (!used.has(i)) { sl = i; break; }
+    if (sl < 0) { toast('최대 8개 종목까지 비교할 수 있습니다. 다른 종목의 체크를 먼저 해제하세요.'); return; }
+    t3.sel.push(t); t3.slots[t] = sl;
   }
-  if (inEp) out.push({ pk, tr, rec: null });
-  return out.map(e => ({ ...e, depth: (LC[e.tr] / LC[e.pk] - 1) * 100 }));
+  lsSet('t3.sel', t3.sel); renderT3();
+}
+const slotColor = t => css(SERIES[t3.slots[t]]);
+
+function renderT3Summary() {
+  const cnt = Object.fromEntries(STATUS.map(s => [s.k, 0]));
+  S.forEach(s => { const lv = levelOf(s.curDD); if (lv) cnt[lv.k]++; });
+  $('#t3Sum').innerHTML = STATUS.map(st => `<button type="button" class="sum-item ${t3.filter === st.k ? 'on' : ''}" data-k="${st.k}">
+      ${badge(st)}<b class="num">${cnt[st.k]}</b><span>종목</span></button>`).join('') +
+    `<span class="asof">Top 100 상태 분포 · 누르면 아래 표를 필터링</span>`;
+}
+function renderT3Cards() {
+  $('#t3Cards').innerHTML = t3.sel.map(t => {
+    const s = bySym[t], lv = levelOf(s.curDD), nx = nextLevel(s);
+    return `<div class="pk-card ${t3.focus === t ? 'focus' : ''}" data-t="${t}">
+      <div class="top"><span><i class="sw" style="background:${slotColor(t)};border-color:transparent"></i><b>${s.rank}. ${s.t}</b></span>${badge(lv)}</div>
+      <div class="nm2">${s.n}</div>
+      <div class="big num ${cls(s.curDD)}">${fmtPct(s.curDD, 2)}</div>
+      <dl>
+        <dt>현재가</dt><dd class="num">${fmtPx(s.last)}</dd>
+        <dt>사상 최고가</dt><dd class="num">${fmtPx(s.athV)} <span class="muted">${s.athD ?? ''}</span></dd>
+        <dt>고점 이후</dt><dd class="num">${s.since === 0 ? '신고가' : (s.since ?? '–') + '일'}</dd>
+        <dt>52주 고점 대비</dt><dd class="num">${fmtPct(s.dd52)}</dd>
+        <dt>${nx ? `‘${nx.name}’ 진입가` : '다음 단계'}</dt><dd class="num">${nx ? `${fmtPx(nx.px)} <span class="muted">(${fmtPct(nx.gap)})</span>` : '최고 단계'}</dd>
+      </dl>
+    </div>`;
+  }).join('');
+}
+function renderT3Charts() {
+  const i0 = rangeStart(D, t3.range), labels = D.slice(i0);
+  const thrDs = STATUS.slice(1).map(s => ({
+    label: `${s.label} ${t3.thr[s.k]}%`, data: labels.map(() => t3.thr[s.k]), borderColor: css('--' + s.k),
+    borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 0, hitRadius: 0, isThr: true,
+  }));
+  $('#t3Legend').innerHTML = t3.sel.map(t => `<span><i style="background:${slotColor(t)}"></i>${t}</span>`).join('') +
+    STATUS.slice(1).map(s => `<span><i class="dash" style="--c:${css('--' + s.k)}"></i>${s.label} ${t3.thr[s.k]}%</span>`).join('');
+  const o = baseOpts({ yFmt: v => v + '%', tipFmt: c => c.dataset.isThr ? null : ` ${c.dataset.label}  ${fmtPct(c.parsed.y, 2)}` });
+  o.plugins.tooltip.filter = c => !c.dataset.isThr;
+  o.scales.y.max = 0;
+  const single = t3.sel.length === 1;
+  mk('t3DD', { type: 'line', data: { labels, datasets: [
+    ...t3.sel.map(t => {
+      const col = slotColor(t);
+      return { label: t, data: bySym[t].dd.slice(i0), borderColor: col, backgroundColor: single ? `color-mix(in srgb, ${col} 18%, transparent)` : col,
+               spanGaps: true, fill: single ? { target: { value: 0 } } : false };
+    }),
+    ...thrDs,
+  ] }, options: o, plugins: [crosshair] });
+  attachZoom('t3DD');
+
+  $('#t3Multi').innerHTML = t3.sel.map((t, i) => {
+    const s = bySym[t];
+    return `<div class="mini"><div class="top"><span class="tk"><i class="sw" style="background:${slotColor(t)};border-color:transparent"></i>${s.t}</span>
+      <span class="v num ${cls(s.curDD)}">${fmtPct(s.curDD)}</span></div>
+      <div class="meta">${fmtPx(s.last)} · 최고 ${fmtPx(s.athV)}</div><div class="cv tall"><canvas id="pm${i}"></canvas></div></div>`;
+  }).join('');
+  t3.sel.forEach((t, i) => {
+    const s = bySym[t], col = slotColor(t);
+    mk('pm' + i, {
+      type: 'line',
+      data: { labels, datasets: [
+        { label: '종가', data: s.c.slice(i0), borderColor: col, borderWidth: 1.5, spanGaps: true },
+        { label: '최고가', data: s.peak.slice(i0), borderColor: css('--peak'), borderDash: [4, 3], borderWidth: 1.2, stepped: true },
+      ] },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { display: false }, tooltip: {
+          backgroundColor: css('--surface'), titleColor: css('--text'), bodyColor: css('--text-2'),
+          borderColor: css('--border'), borderWidth: 1, displayColors: false,
+          callbacks: { label: c => `${c.dataset.label} ${fmtPx(c.parsed.y)}` } } },
+        scales: { x: { display: false }, y: { grid: { color: css('--grid') }, border: { display: false },
+          ticks: { color: css('--text-3'), maxTicksLimit: 4, callback: v => '$' + v.toLocaleString() } } },
+        elements: { point: { radius: 0, hoverRadius: 3, hitRadius: 6 } },
+      },
+    });
+  });
+}
+function renderT3Episodes() {
+  if (!t3.focus || !t3.sel.includes(t3.focus)) t3.focus = t3.sel[0];
+  segBtns($('#t3EpPick'), t3.sel, t3.focus, v => { t3.focus = v; renderT3Episodes(); renderT3Cards(); });
+  const s = bySym[t3.focus];
+  const eps = (s.ep || []).slice().reverse().slice(0, 12);
+  $('#t3Episodes thead').innerHTML = '<tr><th class="l">고점일</th><th>고점</th><th class="l">저점일</th><th>최대 하락</th><th>하락 기간</th><th class="l">회복일</th><th>회복까지</th></tr>';
+  $('#t3Episodes tbody').innerHTML = eps.length ? eps.map(([pd, pv, td, tv, rd]) => `<tr style="cursor:default">
+    <td class="l num">${pd}</td><td class="num">${fmtPx(pv)}</td><td class="l num">${td}</td>
+    <td class="num down">${fmtPct((tv / pv - 1) * 100)}</td><td class="num">${daysBetween(pd, td)}일</td>
+    <td class="l num">${rd == null ? '<b>진행 중</b>' : rd}</td>
+    <td class="num">${rd == null ? '–' : daysBetween(pd, rd) + '일'}</td></tr>`).join('')
+    : `<tr><td colspan="7" class="l">${s.t}: 상장(${s.since ?? '?'}) 이후 −10% 이상 하락 구간이 없습니다.</td></tr>`;
+}
+const T3COLS = [
+  { k: 'chk', h: '' }, { k: 'rank', h: '#' }, { k: 't', h: '종목', l: true }, { k: 'last', h: '현재가' },
+  { k: 'athV', h: '사상 최고가' }, { k: 'athD', h: '최고가 일자', l: true }, { k: 'curDD', h: '고점 대비' },
+  { k: 'dd52', h: '52주 고점 대비' }, { k: 'since', h: '고점 후 경과' }, { k: 'lv', h: '상태', l: true },
+];
+function renderT3Table() {
+  const { key, dir } = t3.sort;
+  $('#t3Table thead').innerHTML = '<tr>' + T3COLS.map(c =>
+    `<th class="${c.l ? 'l' : ''}" data-k="${c.k}">${c.h} <span class="arrow">${c.k === key ? (dir > 0 ? '▲' : '▼') : ''}</span></th>`).join('') + '</tr>';
+  const q = t3.q.toLowerCase();
+  let rows = S.filter(s => (!q || s.t.toLowerCase().includes(q) || s.n.toLowerCase().includes(q)) &&
+                           (!t3.filter || levelOf(s.curDD)?.k === t3.filter));
+  const kv = (s, k) => k === 'lv' || k === 'dd' ? s.curDD : k === 'chk' ? (t3.sel.includes(s.t) ? 0 : 1) : s[k];
+  rows = rows.slice().sort((a, b) => {
+    const x = kv(a, key), y = kv(b, key);
+    if (x == null) return 1; if (y == null) return -1;
+    return (typeof x === 'string' ? x.localeCompare(y) : x - y) * dir;
+  });
+  $('#t3Count').textContent = `${rows.length}개 종목 · ${t3.sel.length}/8 선택`;
+  $('#t3Table tbody').innerHTML = rows.map(s => {
+    const on = t3.sel.includes(s.t);
+    const box = `<input type="checkbox" id="pk-${s.t}" ${on ? 'checked' : ''} aria-label="${s.t} 비교에 추가" style="${on ? `accent-color:${slotColor(s.t)}` : ''}">`;
+    return `<tr data-t="${s.t}" class="${on ? 'sel' : ''}"><td>${box}</td><td class="num">${s.rank}</td>
+      <td class="l"><span class="tk">${s.t}</span> <span class="nm">${s.n}</span></td>
+      <td class="num">${fmtPx(s.last)}</td><td class="num">${fmtPx(s.athV)}</td><td class="l num">${s.athD ?? '–'}</td>
+      <td class="num ${cls(s.curDD)}">${fmtPct(s.curDD)}</td><td class="num ${cls(s.dd52)}">${fmtPct(s.dd52)}</td>
+      <td class="num">${s.since == null ? '–' : s.since === 0 ? '신고가' : s.since + '일'}</td><td class="l">${badge(levelOf(s.curDD))}</td></tr>`;
+  }).join('');
 }
 function renderT3() {
-  const n = LC.length - 1, [li, cur] = lastVal(LC);
-  const ath = peak[li], athIdx = LC.lastIndexOf(ath), cd = dd[li];
-  const lv = levelOf(cd);
-  $('#t3Title').textContent = `1위 ${L.t} (${LS?.n ?? ''}) 고점 대비 모니터링`;
-  $('#t3Sub').textContent = `시가총액 ${fmtCap(LS?.mc)} · 상장 이후 전체 일봉 ${LD.length.toLocaleString()}개 기준 사상 최고가(수정 종가)와 비교합니다.`;
-  const need = { warning: t3.thr.warning, serious: t3.thr.serious, critical: t3.thr.critical };
-  const nextLv = cd > need.warning ? ['주의', need.warning] : cd > need.serious ? ['경고', need.serious] : cd > need.critical ? ['위험', need.critical] : null;
-  const toNext = nextLv ? (ath * (1 + nextLv[1] / 100)) : null;
-  $('#t3Status').innerHTML = `
-    <span class="badge" style="background:${css('--' + lv.k)}">${lv.icon} ${lv.label}</span>
-    <span class="big num ${cls(cd)}">${fmtPct(cd, 2)}</span>
-    <span class="txt">사상 최고가 ${fmtPx(ath)} (${LD[athIdx]}) 대비 · 현재가 ${fmtPx(cur)}
-    ${nextLv ? `<br>‘${nextLv[0]}’ 단계(${nextLv[1]}%) 진입 가격: <b class="num">${fmtPx(toNext)}</b> (현재가 대비 ${fmtPct((toNext / cur - 1) * 100)})` : ''}</span>`;
-
-  const hi52i = rangeStart(LD, '1Y'), hi52 = Math.max(...LC.slice(hi52i).filter(v => v != null));
-  const i2 = rangeStart(LD, t3.range);
-  const mddR = Math.min(...dd.slice(i2).filter(v => v != null));
-  let mdd2 = 0, p2 = -Infinity;
-  LC.slice(i2).forEach(v => { if (v == null) return; p2 = Math.max(p2, v); mdd2 = Math.min(mdd2, (v / p2 - 1) * 100); });
-  const tiles = [
-    ['현재가', fmtPx(cur), `${LD[li]} 종가`],
-    ['사상 최고가', fmtPx(ath), LD[athIdx]],
-    ['고점 이후', athIdx === li ? '신고가' : `${daysBetween(LD[athIdx], LD[li])}일`, athIdx === li ? '오늘 최고가 경신' : `${li - athIdx}거래일 경과`],
-    ['52주 최고가 대비', fmtPct((cur / hi52 - 1) * 100, 2), `52주 최고 ${fmtPx(hi52)}`],
-    [`${RANGES[t3.range].label} 내 최저 (ATH 대비)`, fmtPct(mddR, 1), '사상 최고가 기준'],
-    [`${RANGES[t3.range].label} 내 최대 낙폭 (MDD)`, fmtPct(mdd2, 1), '기간 내 고점 기준'],
-  ];
-  $('#t3Tiles').innerHTML = tiles.map(([k, v, d]) =>
-    `<div class="tile"><div class="k">${k}</div><div class="v num">${v}</div><div class="d">${d}</div></div>`).join('');
-
-  // thresholds UI
   $('#t3Thr').innerHTML = '경보 기준 ' + STATUS.slice(1).map(s =>
-    `<label><span class="dot" style="background:${css('--' + s.k)}"></span>${s.label}<input type="number" step="1" max="0" data-k="${s.k}" value="${t3.thr[s.k]}">%</label>`).join('');
-
-  // charts (downsample long ranges for display; peak computed on full data)
-  const step = Math.max(1, Math.ceil((n - i2 + 1) / 1500));
-  const ix = []; for (let i = i2; i <= n; i += step) ix.push(i); if (ix[ix.length - 1] !== n) ix.push(n);
-  const labels = ix.map(i => LD[i]);
-  const s1 = css('--s1'), pk = css('--peak');
-  $('#t3Legend1').innerHTML = `<span><i style="background:${s1}"></i>${L.t} 종가</span><span><i class="dash"></i>사상 최고가 (누적)</span>`;
-  const o1 = baseOpts({ yFmt: v => '$' + v.toLocaleString(), tipFmt: c => ` ${c.dataset.label}  ${fmtPx(c.parsed.y)}` });
-  o1.scales.y.type = t3.range === 'ALL' ? 'logarithmic' : 'linear';
-  if (t3.range === 'ALL') o1.scales.y.ticks.callback = v => { const l = Math.log10(v); return Math.abs(l - Math.round(l)) < 1e-6 ? '$' + v.toLocaleString() : ''; };
-  mk('t3Price', { type: 'line', data: { labels, datasets: [
-    { label: '종가', data: ix.map(i => LC[i]), borderColor: s1, backgroundColor: s1, spanGaps: true },
-    { label: '최고가', data: ix.map(i => peak[i]), borderColor: pk, backgroundColor: pk, borderDash: [4, 3], borderWidth: 1.5, stepped: true },
-  ] }, options: o1, plugins: [crosshair] });
-
-  const thrDs = STATUS.slice(1).map(s => ({
-    label: `${s.label} ${t3.thr[s.k]}%`, data: ix.map(() => t3.thr[s.k]), borderColor: css('--' + s.k),
-    borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 0, hitRadius: 0,
-  }));
-  $('#t3Legend2').innerHTML = `<span><i style="background:${s1}"></i>고점 대비 %</span>` +
-    STATUS.slice(1).map(s => `<span><i style="background:${css('--' + s.k)}"></i>${s.label} ${t3.thr[s.k]}%</span>`).join('');
-  const o2 = baseOpts({ yFmt: v => v + '%', tipFmt: c => c.datasetIndex === 0 ? ` 고점 대비  ${fmtPct(c.parsed.y, 2)}` : null });
-  o2.plugins.tooltip.filter = c => c.datasetIndex === 0;
-  o2.scales.y.max = 0;
-  mk('t3DD', { type: 'line', data: { labels, datasets: [
-    { label: '고점 대비', data: ix.map(i => dd[i]), borderColor: s1, spanGaps: true,
-      fill: { target: { value: 0 } }, backgroundColor: `color-mix(in srgb, ${s1} 18%, transparent)` },
-    ...thrDs,
-  ] }, options: o2, plugins: [crosshair] });
-
-  // episodes
-  const eps = episodes().reverse().slice(0, 12);
-  $('#t3Episodes thead').innerHTML = '<tr><th class="l">고점일</th><th>고점</th><th class="l">저점일</th><th>최대 하락</th><th>하락 기간</th><th class="l">회복일</th><th>회복까지</th></tr>';
-  $('#t3Episodes tbody').innerHTML = eps.length ? eps.map(e => `<tr style="cursor:default">
-    <td class="l num">${LD[e.pk]}</td><td class="num">${fmtPx(LC[e.pk])}</td><td class="l num">${LD[e.tr]}</td>
-    <td class="num down">${fmtPct(e.depth)}</td><td class="num">${daysBetween(LD[e.pk], LD[e.tr])}일</td>
-    <td class="l num">${e.rec == null ? '<b>진행 중</b>' : LD[e.rec]}</td>
-    <td class="num">${e.rec == null ? '–' : daysBetween(LD[e.pk], LD[e.rec]) + '일'}</td></tr>`).join('')
-    : '<tr><td colspan="7" class="l">해당 구간이 없습니다.</td></tr>';
+    `<label><span class="dot" style="background:${css('--' + s.k)}"></span>${s.label}<input type="number" step="1" max="0" id="thr-${s.k}" data-k="${s.k}" value="${t3.thr[s.k]}">%</label>`).join('');
+  renderT3Summary(); renderT3Cards(); renderT3Charts(); renderT3Episodes(); renderT3Table();
 }
-segBtns($('#t3Range'), ['6M', '1Y', '2Y', '5Y', 'ALL'], t3.range, v => { t3.range = v; lsSet('t3.range', v); renderT3(); });
+segBtns($('#t3Range'), ['6M', '1Y', '2Y'], t3.range, v => { t3.range = v; zoomState.t3DD = undefined; lsSet('t3.range', v); renderT3Charts(); });
 $('#t3Thr').onchange = e => {
   const inp = e.target.closest('input'); if (!inp) return;
-  let v = parseFloat(inp.value); if (!isFinite(v)) return;
+  const v = parseFloat(inp.value); if (!isFinite(v)) return;
   t3.thr[inp.dataset.k] = -Math.abs(v);
   const { warning, serious, critical } = t3.thr;
-  if (!(warning > serious && serious > critical)) { toast('주의 > 경고 > 위험 순으로 설정하세요 (예: -5, -10, -20).'); }
+  if (!(warning > serious && serious > critical)) toast('주의 > 경고 > 위험 순으로 설정하세요 (예: -5, -10, -20).');
   lsSet('t3.thr', t3.thr); renderT3();
 };
+$('#t3Sum').onclick = e => { const b = e.target.closest('.sum-item'); if (!b) return; t3.filter = t3.filter === b.dataset.k ? null : b.dataset.k; renderT3Summary(); renderT3Table(); };
+$('#t3Cards').onclick = e => { const c = e.target.closest('.pk-card'); if (!c) return; t3.focus = c.dataset.t; renderT3Cards(); renderT3Episodes(); };
+$('#t3Table thead').onclick = e => {
+  const th = e.target.closest('th'); if (!th) return;
+  const k = th.dataset.k;
+  t3.sort = { key: k, dir: t3.sort.key === k ? -t3.sort.dir : (['rank', 't', 'chk', 'curDD', 'dd52', 'lv', 'athD'].includes(k) ? 1 : -1) };
+  renderT3Table();
+};
+$('#t3Table tbody').onclick = e => { const tr = e.target.closest('tr'); if (!tr) return; if (e.target.matches('input')) e.preventDefault(); t3Toggle(tr.dataset.t); };
+$('#t3Search').oninput = e => { t3.q = e.target.value.trim(); renderT3Table(); };
+$('#t3Clear').onclick = () => { t3.sel = [S[0].t]; t3.slots = { [S[0].t]: 0 }; t3.focus = null; lsSet('t3.sel', t3.sel); renderT3(); };
 
 /* ---------- routing & theme ---------- */
-const TABS = { top100: renderT1, top10: renderT2, leader: renderT3 };
+const TABS = { top100: renderT1, top10: renderT2, peak: renderT3 };
 let curTab = null;
 function route() {
-  const tab = TABS[location.hash.slice(1)] ? location.hash.slice(1) : 'top100';
+  let h = location.hash.slice(1); if (h === 'leader') h = 'peak';   // old link
+  const tab = TABS[h] ? h : 'top100';
   curTab = tab;
   Object.keys(TABS).forEach(k => { $('#tab-' + k).hidden = k !== tab; });
   document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('active', a.dataset.tab === tab));
