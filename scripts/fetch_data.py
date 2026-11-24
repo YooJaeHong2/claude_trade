@@ -69,6 +69,29 @@ def market_cap(sym: str) -> tuple[float | None, str, str]:
     return (float(cap) if cap else None), name, sector
 
 
+def fill_latest_sessions(daily: pd.DataFrame, tickers: list[str]) -> pd.DataFrame:
+    """Yahoo's daily series omits the current session until well after the close
+    (e.g. a run at 16:05 ET). Append any newer session from 60-minute bars: the
+    last hourly bar's close is that day's closing price."""
+    hourly = yf.download(tickers, period="5d", interval="60m", auto_adjust=True,
+                         progress=False, threads=True)["Close"]
+    if isinstance(hourly, pd.Series):
+        hourly = hourly.to_frame(tickers[0])
+    hourly = hourly.dropna(how="all")
+    if hourly.empty:
+        return daily
+    idx = hourly.index
+    if idx.tz is not None:
+        idx = idx.tz_convert("America/New_York")
+    by_day = hourly.groupby(idx.date).last()
+    last_daily = daily.index[-1].date()
+    for day, row in by_day.iterrows():
+        if day > last_daily:
+            print(f"  adding {day} from hourly bars (missing from daily series)")
+            daily.loc[pd.Timestamp(day)] = row.reindex(daily.columns)
+    return daily.sort_index()
+
+
 def main() -> None:
     print(f"Ranking {len(CANDIDATES)} candidates by market cap...")
     rows = []
@@ -87,6 +110,8 @@ def main() -> None:
     px = yf.download(tickers, period="2y", interval="1d", auto_adjust=True,
                      progress=False, threads=True)["Close"]
     px = px.dropna(how="all").sort_index()
+    px.index = pd.DatetimeIndex(px.index).tz_localize(None)
+    px = fill_latest_sessions(px, tickers)
     dates = [d.strftime("%Y-%m-%d") for d in px.index]
 
     stocks = []
@@ -105,6 +130,8 @@ def main() -> None:
     if isinstance(lh, pd.DataFrame):
         lh = lh.iloc[:, 0]
     lh = lh.dropna()
+    lh.index = pd.DatetimeIndex(lh.index).tz_localize(None)
+    lh = fill_latest_sessions(lh.to_frame(leader), [leader])[leader].dropna()
 
     data = {
         "updated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -117,11 +144,6 @@ def main() -> None:
             "c": [rnd(v) for v in lh.tolist()],
         },
     }
-    try:  # diagnostic: is a newer (possibly intraday) bar available than the last daily close?
-        h = yf.Ticker(leader).history(period="5d", interval="1h")
-        print(f"Latest hourly bar for {leader}: {h.index[-1]}  (daily data ends {dates[-1]})")
-    except Exception as e:  # noqa: BLE001
-        print(f"  hourly check failed: {e}", file=sys.stderr)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
     print(f"Wrote {OUT} ({OUT.stat().st_size / 1024:.0f} KB), {len(dates)} days, as of {dates[-1]}")
