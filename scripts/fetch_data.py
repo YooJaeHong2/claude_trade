@@ -69,6 +69,50 @@ def market_cap(sym: str) -> tuple[float | None, str, str]:
     return (float(cap) if cap else None), name, sector
 
 
+def fill_latest_sessions(daily: pd.DataFrame, tickers: list[str]) -> pd.DataFrame:
+    """Yahoo's daily series omits the current session until well after the close
+    (e.g. a run at 16:05 ET). Append any newer session from 60-minute bars: the
+    last hourly bar's close is that day's closing price."""
+    hourly = yf.download(tickers, period="5d", interval="60m", auto_adjust=True,
+                         progress=False, threads=True)["Close"]
+    if isinstance(hourly, pd.Series):
+        hourly = hourly.to_frame(tickers[0])
+    hourly = hourly.dropna(how="all")
+    if hourly.empty:
+        return daily
+    idx = hourly.index
+    if idx.tz is not None:
+        idx = idx.tz_convert("America/New_York")
+    by_day = hourly.groupby(idx.date).last()
+    last_daily = daily.index[-1].date()
+    for day, row in by_day.iterrows():
+        if day > last_daily:
+            print(f"  adding {day} from hourly bars (missing from daily series)")
+            daily.loc[pd.Timestamp(day)] = row.reindex(daily.columns)
+    return daily.sort_index()
+
+
+def drawdown_episodes(hist: pd.Series, depth: float = -10.0) -> list:
+    """Peak-to-recovery episodes deeper than `depth` %, over the full history.
+    Each item: [peak date, peak, trough date, trough, recovery date or None]."""
+    out, pk, tr, in_ep, peak = [], None, None, False, -math.inf
+    for d, v in hist.items():
+        if v >= peak:
+            if in_ep:
+                out.append((pk, tr, d))
+            peak, pk, tr, in_ep = v, d, d, False
+            continue
+        if v < hist[tr]:
+            tr = d
+        if (v / peak - 1) * 100 <= depth:
+            in_ep = True
+    if in_ep:
+        out.append((pk, tr, None))
+    f = lambda d: d.strftime("%Y-%m-%d")
+    return [[f(p), rnd(hist[p]), f(t), rnd(hist[t]), f(r) if r is not None else None]
+            for p, t, r in out]
+
+
 def main() -> None:
     print(f"Ranking {len(CANDIDATES)} candidates by market cap...")
     rows = []
@@ -83,39 +127,43 @@ def main() -> None:
     top = rows[:TOP_N]
 
     tickers = [r["t"] for r in top]
-    print("Downloading 2y daily closes...")
-    px = yf.download(tickers, period="2y", interval="1d", auto_adjust=True,
-                     progress=False, threads=True)["Close"]
-    px = px.dropna(how="all").sort_index()
+    print("Downloading full daily history...")
+    full = yf.download(tickers, period="max", interval="1d", auto_adjust=True,
+                       progress=False, threads=True)["Close"]
+    if isinstance(full, pd.Series):
+        full = full.to_frame(tickers[0])
+    full = full.dropna(how="all").sort_index()
+    full.index = pd.DatetimeIndex(full.index).tz_localize(None)
+    full = fill_latest_sessions(full, tickers)
+
+    start = full.index[-1] - pd.DateOffset(years=2)
+    px = full.loc[full.index >= start]
     dates = [d.strftime("%Y-%m-%d") for d in px.index]
 
     stocks = []
     for rank, r in enumerate(top, 1):
+        hist = full[r["t"]].dropna() if r["t"] in full else pd.Series(dtype=float)
         col = px[r["t"]] if r["t"] in px else pd.Series(index=px.index, dtype=float)
         closes = [rnd(v) for v in col.tolist()]
         if sum(c is not None for c in closes) < 20:
             print(f"  warning: little price data for {r['t']}", file=sys.stderr)
-        stocks.append({**r, "rank": rank, "c": closes})
-
-    # Full history for the #1 company, so "peak" means the true all-time high.
-    leader = top[0]["t"]
-    print(f"Downloading full history for #1 ({leader})...")
-    lh = yf.download(leader, period="max", interval="1d", auto_adjust=True,
-                     progress=False)["Close"]
-    if isinstance(lh, pd.DataFrame):
-        lh = lh.iloc[:, 0]
-    lh = lh.dropna()
+        before = hist.loc[hist.index < px.index[0]]
+        ath_i = hist.idxmax() if len(hist) else None
+        stocks.append({
+            **r, "rank": rank, "c": closes,
+            # highest close before the 2-year window: lets the page measure
+            # drawdowns against the true all-time high, not just the window's
+            "pk0": rnd(before.max()) if len(before) else None,
+            "since": hist.index[0].strftime("%Y-%m-%d") if len(hist) else None,
+            "ath": [rnd(hist.max()), ath_i.strftime("%Y-%m-%d")] if ath_i is not None else None,
+            "ep": drawdown_episodes(hist),
+        })
 
     data = {
         "updated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "asOf": dates[-1],
         "dates": dates,
         "stocks": stocks,
-        "leader": {
-            "t": leader,
-            "dates": [d.strftime("%Y-%m-%d") for d in lh.index],
-            "c": [rnd(v) for v in lh.tolist()],
-        },
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")

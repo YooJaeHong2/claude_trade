@@ -12,7 +12,7 @@
 |---|---|
 | `scripts/fetch_data.py` | 후보 종목을 실시간 시가총액으로 정렬해 상위 100개를 고르고, 2년 일봉과 1위 기업의 전체 이력을 받아 `data/data.json`에 저장 |
 | `scripts/build_site.py` | `web/index.html`에 데이터를 넣어 단일 파일 `site/index.html` 생성 |
-| `.github/workflows/update-data.yml` | 평일 미국 장 마감 후 데이터를 갱신해 커밋하고, 기본 브랜치에서는 GitHub Pages로 배포 |
+| `.github/workflows/update-data.yml` | 매일 오전 6시 5분(KST)에 데이터를 갱신해 커밋하고, 기본 브랜치에서는 GitHub Pages로 배포 |
 
 ## 로컬 실행
 

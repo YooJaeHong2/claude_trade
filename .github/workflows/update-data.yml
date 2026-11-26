@@ -7,7 +7,7 @@ on:
       - "web/**"
       - ".github/workflows/update-data.yml"
   schedule:
-    - cron: "17 22 * * 1-5"   # 22:17 UTC on weekdays, after the US close
+    - cron: "5 21 * * *"   # 매일 06:05 KST (21:05 UTC), 미국 장 마감 직후
   workflow_dispatch:
 
 permissions:
